@@ -91,10 +91,9 @@ const handleAvatarSuccess: UploadProps['onSuccess'] = (
         <el-form-item label="tags">
           <el-select
             v-model="article.tags"
-
             filterable allow-create multiple default-first-option
             :reserve-keyword="false"
-            placeholder="Choose tags for your article"
+            placeholder="tags"
           >
             <el-option
               v-for="item in tags"
@@ -111,9 +110,11 @@ const handleAvatarSuccess: UploadProps['onSuccess'] = (
             </p>
           </div>
           <el-upload
-            class="avatar-uploader"
+
             action="https://img-upload.violetzzs.workers.dev/"
-            :show-file-list="false"
+            multiple drag
+            method="PUT"
+            :show-file-list="true"
             :on-success="handleAvatarSuccess"
           >
             <img v-if="imageUrl" :src="imageUrl" class="avatar">
