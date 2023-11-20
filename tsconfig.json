@@ -12,7 +12,8 @@
     "resolveJsonModule": true,
     "types": [
       "vite/client",
-      "unplugin-vue-macros/macros-global"
+      "unplugin-vue-macros/macros-global",
+      "element-plus/global"
     ],
     "allowJs": true,
     "strict": true,

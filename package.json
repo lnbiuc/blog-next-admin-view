@@ -9,11 +9,13 @@
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest",
-    "up": "taze major -I",
-    "postinstall": "npx simple-git-hooks"
+    "up": "taze major -I"
   },
   "dependencies": {
     "@vueuse/core": "^10.6.0",
+    "axios": "^1.6.2",
+    "element-plus": "^2.4.2",
+    "md-editor-v3": "^4.8.3",
     "vue": "^3.3.8",
     "vue-router": "^4.2.5"
   },

@@ -1,46 +1,128 @@
 <script setup lang="ts" generic="T extends any, O extends any">
+import { MdEditor } from 'md-editor-v3'
+import 'md-editor-v3/lib/style.css'
+import type { UploadProps } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import type { Article } from '../axios/api/type'
+import { getAllTags } from '../axios/tag'
+
 defineOptions({
   name: 'IndexPage',
 })
 
-const name = ref('')
+const article: Ref<Article> = ref({
+  shortLink: '',
+  title: '',
+  description: '',
+  cover: [],
+  stack: [],
+  category: '',
+  content: '',
+  authorId: 0,
+  status: '',
+  tags: [],
+})
 
-const router = useRouter()
-function go() {
-  if (name.value)
-    router.push(`/hi/${encodeURIComponent(name.value)}`)
+const status = ref<string[]>([
+  'PUBLISHED',
+  'DELETED',
+  'SAVER',
+  'PRIVATE',
+])
+
+const category = ref<string[]>([
+  'ARTICLE',
+  'SHORTS',
+  'PROJECT',
+])
+
+const tags = ref<string[]>([])
+
+getAllTags().then((res: any) => {
+  tags.value = res.data.data
+})
+
+const imageUrl = ref('')
+
+const handleAvatarSuccess: UploadProps['onSuccess'] = (
+  response,
+  uploadFile,
+) => {
+  imageUrl.value = URL.createObjectURL(uploadFile.raw!)
 }
 </script>
 
 <template>
-  <div>
-    <div i-carbon-campsite inline-block text-4xl />
-    <p>
-      <a rel="noreferrer" href="https://github.com/antfu/vitesse-lite" target="_blank">
-        Vitesse Lite
-      </a>
-    </p>
-    <p>
-      <em text-sm op75>Opinionated Vite Starter Template</em>
-    </p>
+  <div class="w-full">
+    <MdEditor v-model="article.content" theme="dark" />
+  </div>
+  <div class="flex flex-row">
+    <div class="my-2 w-[500px]">
+      <el-form :model="article" label-width="120px">
+        <el-form-item label="Article">
+          <el-input v-model="article.title" />
+        </el-form-item>
+        <el-form-item label="Short Link">
+          <el-input v-model="article.shortLink" />
+        </el-form-item>
+        <el-form-item label="Description">
+          <el-input v-model="article.description" type="textarea" />
+        </el-form-item>
+        <el-form-item label="status">
+          <el-select v-model="article.status" placeholder="status">
+            <el-option
+              v-for="item in status"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="category">
+          <el-select v-model="article.category" placeholder="category">
+            <el-option
+              v-for="item in category"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="tags">
+          <el-select
+            v-model="article.tags"
 
-    <div py-4 />
-
-    <TheInput
-      v-model="name"
-      placeholder="What's your name?"
-      autocomplete="false"
-      @keydown.enter="go"
-    />
-
-    <div>
-      <button
-        class="m-3 text-sm btn"
-        :disabled="!name"
-        @click="go"
-      >
-        Go
-      </button>
+            filterable allow-create multiple default-first-option
+            :reserve-keyword="false"
+            placeholder="Choose tags for your article"
+          >
+            <el-option
+              v-for="item in tags"
+              :key="item"
+              :label="item"
+              :value="item"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="cover">
+          <div>
+            <p v-for="a in article.cover" :key="a">
+              {{ a }}
+            </p>
+          </div>
+          <el-upload
+            class="avatar-uploader"
+            action="https://img-upload.violetzzs.workers.dev/"
+            :show-file-list="false"
+            :on-success="handleAvatarSuccess"
+          >
+            <img v-if="imageUrl" :src="imageUrl" class="avatar">
+            <el-icon v-else class="avatar-uploader-icon">
+              <Plus />
+            </el-icon>
+          </el-upload>
+        </el-form-item>
+      </el-form>
     </div>
   </div>
 </template>
