@@ -54,7 +54,7 @@ async function onUploadImg(files: Array<File>, callback: (urls: Array<string>) =
         form.append('file', file)
 
         axios
-          .post('http://192.168.31.231:1231/api/v1/auth/file/upload', form, {
+          .post('https://blog-api.vio.vin/api/v1/auth/file/upload', form, {
             headers: {
               'Content-Type': 'multipart/form-data',
               'Authorization': localStorage.getItem('token'),
@@ -162,7 +162,7 @@ function handlePublish() {
           <el-upload
             v-model="article.cover"
             list-type="picture-card"
-            action="http://192.168.31.231:1231/api/v1/auth/file/upload"
+            action="https://blog-api.vio.vin/api/v1/auth/file/upload"
             name="file"
             :drag="true"
             method="POST"
@@ -181,6 +181,5 @@ function handlePublish() {
     <el-button type="primary" @click="handlePublish">
       Publish
     </el-button>
-    {{ article }}
   </div>
 </template>
