@@ -21,7 +21,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://blog-api.vio.vin/api',
+        // target: 'https://blog-api.vio.vin/api',
+        target: 'http://192.168.31.231:1231/api',
         changeOrigin: true,
         rewrite: path => path.replace(/^\/api/, ''),
       },

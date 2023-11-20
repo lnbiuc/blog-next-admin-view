@@ -1,127 +1,94 @@
 <script setup lang="ts" generic="T extends any, O extends any">
-import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
-import type { UploadProps } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import type { Article } from '../axios/api/type'
-import { getAllTags } from '../axios/tag'
+import { reactive, ref } from 'vue'
+import type { FormInstance, FormRules } from 'element-plus'
+import { login } from '~/axios/user'
 
 defineOptions({
   name: 'IndexPage',
 })
 
-const article: Ref<Article> = ref({
-  shortLink: '',
-  title: '',
-  description: '',
-  cover: [],
-  stack: [],
-  category: '',
-  content: '',
-  authorId: 0,
-  status: '',
-  tags: [],
+const ruleFormRef = ref<FormInstance>()
+
+const ruleForm = reactive({
+  account: '',
+  password: '',
 })
 
-const status = ref<string[]>([
-  'PUBLISHED',
-  'DELETED',
-  'SAVER',
-  'PRIVATE',
-])
+function validateAccount(rule: any, value: any, callback: any) {
+  if (value === '')
+    callback(new Error('Please input the account'))
 
-const category = ref<string[]>([
-  'ARTICLE',
-  'SHORTS',
-  'PROJECT',
-])
+  else
+    callback()
+}
+function validatePassword(rule: any, value: any, callback: any) {
+  if (value === '')
+    callback(new Error('Please input the password'))
 
-const tags = ref<string[]>([])
+  else
+    callback()
+}
 
-getAllTags().then((res: any) => {
-  tags.value = res.data.data
+const rules = reactive<FormRules<typeof ruleForm>>({
+  account: [{ validator: validateAccount, trigger: 'blur' }],
+  password: [{ validator: validatePassword, trigger: 'blur' }],
 })
 
-const imageUrl = ref('')
+const router = useRouter()
 
-const handleAvatarSuccess: UploadProps['onSuccess'] = (
-  response,
-  uploadFile,
-) => {
-  imageUrl.value = URL.createObjectURL(uploadFile.raw!)
+function submitForm(formEl: FormInstance | undefined) {
+  if (!formEl)
+    return
+  formEl.validate((valid) => {
+    if (valid) {
+      login(ruleForm).then((res) => {
+        if (res.data.code === 200) {
+          ElMessage.success('Login success')
+          useLocalStorage('token', res.headers.authorization)
+          useLocalStorage('user', JSON.stringify(res.data.data))
+          setTimeout(() => {
+            router.push('/publish')
+          }, 500)
+        }
+        else {
+          ElMessage.error(res.data.msg)
+        }
+      })
+    }
+    else {
+      ElMessage.error('Please input the account and password')
+      return false
+    }
+  })
 }
 </script>
 
 <template>
-  <div class="w-full">
-    <MdEditor v-model="article.content" theme="dark" />
-  </div>
-  <div class="flex flex-row">
-    <div class="my-2 w-[500px]">
-      <el-form :model="article" label-width="120px">
-        <el-form-item label="Article">
-          <el-input v-model="article.title" />
+  <div class="flex flex-col items-center justify-center">
+    <div class="mt-[200px] w-[300px]">
+      <el-form
+        ref="ruleFormRef"
+        class=""
+        :model="ruleForm"
+        status-icon
+        :rules="rules"
+        label-width="120px"
+      >
+        <el-form-item label="Account" prop="account">
+          <el-input v-model="ruleForm.account" autocomplete="off" />
         </el-form-item>
-        <el-form-item label="Short Link">
-          <el-input v-model="article.shortLink" />
+        <el-form-item label="Password" prop="password">
+          <el-input
+            v-model="ruleForm.password"
+            type="password"
+            autocomplete="off"
+          />
         </el-form-item>
-        <el-form-item label="Description">
-          <el-input v-model="article.description" type="textarea" />
-        </el-form-item>
-        <el-form-item label="status">
-          <el-select v-model="article.status" placeholder="status">
-            <el-option
-              v-for="item in status"
-              :key="item"
-              :label="item"
-              :value="item"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="category">
-          <el-select v-model="article.category" placeholder="category">
-            <el-option
-              v-for="item in category"
-              :key="item"
-              :label="item"
-              :value="item"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="tags">
-          <el-select
-            v-model="article.tags"
-            filterable allow-create multiple default-first-option
-            :reserve-keyword="false"
-            placeholder="tags"
-          >
-            <el-option
-              v-for="item in tags"
-              :key="item"
-              :label="item"
-              :value="item"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="cover">
-          <div>
-            <p v-for="a in article.cover" :key="a">
-              {{ a }}
-            </p>
-          </div>
-          <el-upload
-
-            action="https://img-upload.violetzzs.workers.dev/"
-            multiple drag
-            method="PUT"
-            :show-file-list="true"
-            :on-success="handleAvatarSuccess"
-          >
-            <img v-if="imageUrl" :src="imageUrl" class="avatar">
-            <el-icon v-else class="avatar-uploader-icon">
-              <Plus />
-            </el-icon>
-          </el-upload>
+        <el-form-item>
+          <el-button type="primary" @click="submitForm(ruleFormRef)">
+            login
+          </el-button>
         </el-form-item>
       </el-form>
     </div>

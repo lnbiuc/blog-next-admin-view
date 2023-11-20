@@ -2,11 +2,13 @@ import axios from 'axios'
 
 const apiAxios = axios.create({
   withCredentials: true,
-  timeout: 10000,
+  timeout: 100000,
 })
 
 // 前置拦截
 apiAxios.interceptors.request.use((config) => {
+  if (localStorage.getItem('token') && localStorage.getItem('token') !== '')
+    config.headers.Authorization = localStorage.getItem('token')
   return config
 })
 
