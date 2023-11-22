@@ -62,11 +62,22 @@ function submitForm(formEl: FormInstance | undefined) {
     }
   })
 }
+
+router.beforeEach((to, from, next) => {
+  if (to.path !== '/login') {
+    if (localStorage.getItem('token'))
+      next()
+
+    else
+      next('/login')
+  }
+  else { next() }
+})
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center">
-    <div class="mt-[200px] w-[300px]">
+  <div class="h-full w-full flex flex-col items-center justify-center">
+    <div class="w-[200px]">
       <el-form
         ref="ruleFormRef"
         class=""
@@ -74,6 +85,7 @@ function submitForm(formEl: FormInstance | undefined) {
         status-icon
         :rules="rules"
         label-width="120px"
+        label-position="top"
       >
         <el-form-item label="Account" prop="account">
           <el-input v-model="ruleForm.account" autocomplete="off" />
@@ -86,7 +98,7 @@ function submitForm(formEl: FormInstance | undefined) {
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="submitForm(ruleFormRef)">
+          <el-button bg text class="mt-4 w-full" type="primary" @click="submitForm(ruleFormRef)">
             login
           </el-button>
         </el-form-item>
