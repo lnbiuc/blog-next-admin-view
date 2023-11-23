@@ -65,7 +65,7 @@ function submitForm(formEl: FormInstance | undefined) {
 
 router.beforeEach((to, from, next) => {
   if (to.path !== '/login') {
-    if (localStorage.getItem('token'))
+    if (localStorage.getItem('token') && localStorage.getItem('user'))
       next()
 
     else
