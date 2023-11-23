@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="T extends any, O extends any">
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
-import type { UploadFile, UploadProps } from 'element-plus'
+import type { FormInstance, UploadFile, UploadProps } from 'element-plus'
 import type { Article } from '~/axios/api/type'
 import { getAllTags } from '~/axios/tag'
 import axios from '~/axios'
@@ -80,49 +80,76 @@ async function onUploadImg(files: Array<File>, callback: (urls: Array<string>) =
 
 const router = useRouter()
 
-const dialogVisible = ref(false)
+const publishDialog = ref(false)
 
-function handlePublish() {
+const ruleFormRef = ref<FormInstance>()
+
+const rules = reactive({
+  shortLink: [
+    { required: true, message: 'Please input the short link', trigger: 'blur' },
+  ],
+  title: [
+    { required: true, message: 'Please input the title', trigger: 'blur' },
+  ],
+  description: [
+    { required: true, message: 'Please input the description', trigger: 'blur' },
+  ],
+  status: [
+    { required: true, message: 'Please select the status', trigger: 'blur' },
+  ],
+  category: [
+    { required: true, message: 'Please select the category', trigger: 'blur' },
+  ],
+  tags: [
+    { required: true, message: 'Please select the tags', trigger: 'blur' },
+  ],
+  cover: [
+    { required: true, message: 'Please select the cover', trigger: 'blur' },
+  ],
+})
+
+const articleId = ref<string>()
+
+async function handlePublish(formEl: FormInstance | undefined) {
   if (localStorage.getItem('user') == null) {
     router.push('/')
     return
   }
 
-  article.value.authorId = JSON.parse(localStorage.getItem('user')!).id
-
-  if (!checkPublishParams)
+  if (!formEl)
     return
+  formEl.validate((valid) => {
+    if (valid) {
+      article.value.authorId = JSON.parse(localStorage.getItem('user')!).id
 
-  publishArticle(article.value).then((res) => {
-    if (res.data.code === 200) {
-      ElMessage.success('Publish success')
-      dialogVisible.value = false
-      article.value = {
-        shortLink: '',
-        title: '',
-        description: '',
-        cover: [],
-        stack: [],
-        category: 'ARTICLE',
-        content: '',
-        authorId: 0,
-        status: 'PUBLISHED',
-        tags: [],
-      }
+      publishArticle(article.value).then((res) => {
+        if (res.data.code === 200) {
+          ElMessage.success('Publish success')
+          publishDialog.value = false
+          articleId.value = res.data.data
+          if (articleId.value)
+            useLocalStorage(articleId.value, JSON.stringify(article.value))
+        }
 
-      getAllTags()
+        else { ElMessage.error(res.data.msg) }
+      })
     }
-
-    else { ElMessage.error(res.data.msg) }
+    else {
+      ElMessage.error('Please input the title and description')
+      return false
+    }
   })
 }
 
-function checkPublishParams(): boolean {
-  return false
-}
+// watch不能正确触发
+watch(article.value, async (newVal) => {
+  ElMessage.success('Auto save success')
+  if (articleId.value)
+    useLocalStorage(articleId.value, JSON.stringify(newVal))
+})
 
 function handleOnSave() {
-  dialogVisible.value = true
+  publishDialog.value = true
 }
 
 function handleRemove(uploadFile: UploadFile) {
@@ -134,14 +161,38 @@ function handleRemove(uploadFile: UploadFile) {
 
 function handleKeyDown(event: any) {
   if (event.ctrlKey && event.key === 's') {
-    event.preventDefault() // 阻止默认的保存网页行为
+    event.preventDefault()
     handleOnSave()
   }
 }
 
+const savedKeys = ref<string[]>([])
+
+const recoverDialog = ref<boolean>(false)
+
 onMounted(() => {
   document.addEventListener('keydown', handleKeyDown)
+
+  // 遍历localStorage中的每个key
+  for (let i = 0; i < localStorage.length; i++)
+    savedKeys.value.push(localStorage.key(i) ? localStorage.key(i)! : 'NULL')
+
+  savedKeys.value = savedKeys.value.filter(item => item !== 'token' && item !== 'user' && item !== 'vueuse-color-scheme')
+
+  if (savedKeys.value.length > 0)
+    recoverDialog.value = true
 })
+
+function handleRecover(key: string) {
+  const data = localStorage.getItem(key)
+  if (data)
+    article.value = JSON.parse(data)
+
+  else
+    ElMessage.error('Recover failed')
+
+  recoverDialog.value = false
+}
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
@@ -149,33 +200,63 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <div class="h-[50px] w-full flex flex-row items-center justify-between px-4">
+    <div class="flex flex-row">
+      <div class="w-400px flex flex-row items-center">
+        title: <el-input v-model="article.title" class="mx-2" />
+      </div>
+      <div class="w-400px flex flex-row items-center">
+        shortLink: <el-input v-model="article.shortLink" class="ml-2" />
+      </div>
+    </div>
+    <div class="flex flex-row">
+      <el-button class="mx-2" @click="publishDialog = true">
+        publish
+      </el-button>
+    </div>
+  </div>
   <div class="w-full">
     <MdEditor
       v-model="article.content"
       theme="dark"
-      :page-fullscreen="true"
+      :page-fullscreen="false"
       class="z-0"
       @on-upload-img="onUploadImg"
       @on-save="handleOnSave"
     />
   </div>
   <el-dialog
-    v-model="dialogVisible"
-    title="Save"
+    v-model="recoverDialog"
+    title="Recover Article"
+  >
+    <div>
+      <div v-for="k in savedKeys" :key="k" class="flex flex-row items-center">
+        <div>
+          {{ k }}
+        </div>
+        <el-button class="ml-4" type="success" @click="handleRecover(k)">
+          recover
+        </el-button>
+      </div>
+    </div>
+  </el-dialog>
+  <el-dialog
+    v-model="publishDialog"
+    title="Publish"
   >
     <div class="flex flex-col">
-      <div class="my-2 w-[500px]">
-        <el-form :model="article" label-width="120px">
-          <el-form-item label="title">
+      <div class="mx-a my-2 w-[500px] text-center">
+        <el-form ref="ruleFormRef" :model="article" label-width="120px" :rules="rules" label-position="top">
+          <el-form-item label="title" prop="title">
             <el-input v-model="article.title" />
           </el-form-item>
-          <el-form-item label="Short Link">
+          <el-form-item label="Short Link" prop="shortLink">
             <el-input v-model="article.shortLink" />
           </el-form-item>
-          <el-form-item label="description">
+          <el-form-item label="description" prop="description">
             <el-input v-model="article.description" type="textarea" />
           </el-form-item>
-          <el-form-item label="status">
+          <el-form-item label="status" prop="status">
             <el-select v-model="article.status" placeholder="status">
               <el-option
                 v-for="item in status"
@@ -185,7 +266,7 @@ onUnmounted(() => {
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="category">
+          <el-form-item label="category" prop="category">
             <el-select v-model="article.category" placeholder="category">
               <el-option
                 v-for="item in category"
@@ -195,7 +276,7 @@ onUnmounted(() => {
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="tags">
+          <el-form-item label="tags" prop="tags">
             <el-select
               v-model="article.tags"
               filterable allow-create multiple default-first-option
@@ -212,12 +293,7 @@ onUnmounted(() => {
               </el-option>
             </el-select>
           </el-form-item>
-          <el-form-item label="cover">
-            <div>
-              <!-- <span v-for="a in article.cover" :key="a">
-                {{ a }}
-              </span> -->
-            </div>
+          <el-form-item label="cover" prop="cover">
             <el-upload
               v-model="article.cover"
               action="https://blog-api.vio.vin/api/v1/auth/file/upload"
@@ -228,19 +304,18 @@ onUnmounted(() => {
               :on-success="handleAvatarSuccess"
               class="h-full w-full"
               :on-remove="handleRemove"
-            />
+            >
+              <img v-for="c in article.cover" :key="c" :src="c" class="mt-2 w-full object-cover">
+            </el-upload>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handlePublish(ruleFormRef)">
+              Publish
+            </el-button>
           </el-form-item>
         </el-form>
       </div>
     </div>
-    <template #footer>
-      <span class="dialog-footer">
-        <el-button @click="dialogVisible = false">Cancel</el-button>
-        <el-button type="primary" @click="handlePublish">
-          Confirm
-        </el-button>
-      </span>
-    </template>
   </el-dialog>
 </template>
 
