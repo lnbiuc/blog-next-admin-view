@@ -1,5 +1,5 @@
 <template>
-  <main font-sans class="gray-700 dark:gray-200">
+  <main font-sans class="w-full h-full gray-700 dark:gray-200">
     <RouterView />
     <!-- <TheFooter /> -->
   </main>

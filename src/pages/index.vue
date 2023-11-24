@@ -76,8 +76,8 @@ router.beforeEach((to, from, next) => {
 </script>
 
 <template>
-  <div class="m-auto h-[1000px] w-full flex flex-col items-center justify-center text-center">
-    <div class="w-[200px]">
+  <div class="m-auto h-full w-full flex flex-col items-center justify-center text-center">
+    <div class="my-auto w-[200px]">
       <el-form
         ref="ruleFormRef"
         class=""
