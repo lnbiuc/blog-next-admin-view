@@ -127,8 +127,7 @@ async function handlePublish(formEl: FormInstance | undefined) {
           ElMessage.success('Publish success')
           publishDialog.value = false
           articleId.value = res.data.data
-          if (articleId.value)
-            useLocalStorage(articleId.value, JSON.stringify(article.value))
+          saveToLocal()
         }
 
         else { ElMessage.error(res.data.msg) }
@@ -140,13 +139,6 @@ async function handlePublish(formEl: FormInstance | undefined) {
     }
   })
 }
-
-// watch不能正确触发
-watch(article.value, async (newVal) => {
-  ElMessage.success('Auto save success')
-  if (articleId.value)
-    useLocalStorage(articleId.value, JSON.stringify(newVal))
-})
 
 function handleOnSave() {
   publishDialog.value = true
@@ -197,16 +189,39 @@ function handleRecover(key: string) {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeyDown)
 })
+
+const debouncedFn = useDebounceFn(() => {
+  ElMessage.success('debouncedFn saved')
+  saveToLocal()
+}, 3000)
+
+function saveToLocal() {
+  if (articleId.value)
+    useLocalStorage(articleId.value, JSON.stringify(article.value))
+}
+
+watch(article.value, async () => {
+  debouncedFn()
+})
+
+// const saveLocalStatus = ref(false)
+// const saveCloudStatus = ref(false)
 </script>
 
 <template>
   <div class="h-[50px] w-full flex flex-row items-center justify-between px-4">
     <div class="flex flex-row">
-      <div class="w-400px flex flex-row items-center">
+      <div class="w-300px flex flex-row items-center">
         title: <el-input v-model="article.title" class="mx-2" />
       </div>
-      <div class="w-400px flex flex-row items-center">
+      <div class="w-200px flex flex-row items-center">
         shortLink: <el-input v-model="article.shortLink" class="ml-2" />
+      </div>
+      <div class="ml-4 flex flex-row items-center">
+        status:
+        <div class="i-carbon-information-filled text-red ml-2" />
+        <div class="i-carbon-checkmark-filled mx-2 text-yellow" />
+        <div class="i-carbon-checkmark-filled text-green" />
       </div>
     </div>
     <div class="flex flex-row">

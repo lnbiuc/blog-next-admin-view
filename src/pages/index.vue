@@ -73,6 +73,13 @@ router.beforeEach((to, from, next) => {
   }
   else { next() }
 })
+
+onMounted(() => {
+  if (localStorage.getItem('token') && localStorage.getItem('user')) {
+    ElMessage.success('Login success, Redirecting...')
+    router.push('/publish')
+  }
+})
 </script>
 
 <template>
