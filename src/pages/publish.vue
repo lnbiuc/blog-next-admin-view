@@ -1,11 +1,11 @@
 <script setup lang="ts" generic="T extends any, O extends any">
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
-import type { FormInstance, UploadFile, UploadProps } from 'element-plus'
+import { ElNotification, type FormInstance, type UploadFile, type UploadProps } from 'element-plus'
 import type { Article } from '~/axios/api/type'
 import { getAllTags } from '~/axios/tag'
 import axios from '~/axios'
-import { publishArticle } from '~/axios/article'
+import { publishArticle, updateArticle } from '~/axios/article'
 
 const article: Ref<Article> = ref({
   shortLink: '',
@@ -45,7 +45,6 @@ const handleAvatarSuccess: UploadProps['onSuccess'] = (
   response,
   uploadFile: UploadFile,
 ) => {
-  ElMessage.success('Upload success')
   article.value.cover?.push(response.data)
   if (uploadFile) {
     fileList.value.push({
@@ -53,9 +52,21 @@ const handleAvatarSuccess: UploadProps['onSuccess'] = (
       fileUrl: response.data,
     })
   }
+  ElNotification({
+    title: 'Upload success',
+    message: response.data,
+    type: 'success',
+    duration: 3000,
+  })
 }
 
 async function onUploadImg(files: Array<File>, callback: (urls: Array<string>) => void) {
+  ElNotification({
+    title: 'Uploading',
+    message: 'Uploading images, please wait',
+    type: 'warning',
+    duration: 3000,
+  })
   const res = await Promise.all(
     files.map((file) => {
       return new Promise((rev, rej) => {
@@ -76,6 +87,12 @@ async function onUploadImg(files: Array<File>, callback: (urls: Array<string>) =
   )
   // @ts-expect-error unchecked
   callback(res.map(item => item.data.data))
+  ElNotification({
+    title: 'Upload success',
+    message: 'Upload success',
+    type: 'success',
+    duration: 3000,
+  })
 }
 
 const router = useRouter()
@@ -108,10 +125,13 @@ const rules = reactive({
   ],
 })
 
+const localSaved = ref(false)
+const cloudSaved = ref(false)
+
 const articleId = ref<string>()
 
 async function handlePublish(formEl: FormInstance | undefined) {
-  if (localStorage.getItem('user') == null) {
+  if (localStorage.getItem('user') == null || localStorage.getItem('token') == null) {
     router.push('/')
     return
   }
@@ -126,7 +146,8 @@ async function handlePublish(formEl: FormInstance | undefined) {
         if (res.data.code === 200) {
           ElMessage.success('Publish success')
           publishDialog.value = false
-          articleId.value = res.data.data
+          articleId.value = `${res.data.data}`
+          cloudSaved.value = true
           saveToLocal()
         }
 
@@ -140,8 +161,35 @@ async function handlePublish(formEl: FormInstance | undefined) {
   })
 }
 
+function updateContent() {
+  if (!articleId.value) {
+    publishDialog.value = true
+    return
+  }
+  const data: Article = {
+    content: article.value.content,
+  }
+  updateArticle(data, articleId.value).then((res) => {
+    saveToLocal()
+    if (res.data.code === 200) {
+      ElMessage.success('Update success')
+      cloudSaved.value = true
+    }
+
+    else { ElMessage.error(res.data.msg) }
+  })
+}
+
+const debouncedUpdateContent = useDebounceFn(() => {
+  updateContent()
+}, 3000)
+
 function handleOnSave() {
-  publishDialog.value = true
+  if (!articleId.value) {
+    publishDialog.value = true
+    return
+  }
+  debouncedUpdateContent()
 }
 
 function handleRemove(uploadFile: UploadFile) {
@@ -160,9 +208,9 @@ function handleKeyDown(event: any) {
 
 const savedKeys = ref<string[]>([])
 
-const recoverDialog = ref<boolean>(false)
-
 onMounted(() => {
+  if (localStorage.getItem('user') == null || localStorage.getItem('token') == null)
+    router.push('/')
   document.addEventListener('keydown', handleKeyDown)
 
   // 遍历localStorage中的每个key
@@ -170,20 +218,32 @@ onMounted(() => {
     savedKeys.value.push(localStorage.key(i) ? localStorage.key(i)! : 'NULL')
 
   savedKeys.value = savedKeys.value.filter(item => item !== 'token' && item !== 'user' && item !== 'vueuse-color-scheme')
-
-  if (savedKeys.value.length > 0)
-    recoverDialog.value = true
 })
 
-function handleRecover(key: string) {
-  const data = localStorage.getItem(key)
-  if (data)
-    article.value = JSON.parse(data)
+function getTitleById(id: string): string {
+  const data = localStorage.getItem(id)
+  if (data) {
+    const article: Article = JSON.parse(data)
+    return article.title ? article.title : ''
+  }
+  return ''
+}
 
-  else
+const currentRecoverKey = ref()
+
+function handleRecover() {
+  if (!currentRecoverKey.value) {
     ElMessage.error('Recover failed')
+    return
+  }
+  const data = localStorage.getItem(currentRecoverKey.value)
+  if (data) {
+    article.value = JSON.parse(data)
+    articleId.value = currentRecoverKey.value
+    ElMessage.success('Recover success')
+  }
 
-  recoverDialog.value = false
+  else { ElMessage.error('Recover failed') }
 }
 
 onUnmounted(() => {
@@ -191,21 +251,40 @@ onUnmounted(() => {
 })
 
 const debouncedFn = useDebounceFn(() => {
-  ElMessage.success('debouncedFn saved')
   saveToLocal()
 }, 3000)
 
 function saveToLocal() {
-  if (articleId.value)
+  if (articleId.value) {
     useLocalStorage(articleId.value, JSON.stringify(article.value))
+    localSaved.value = true
+  }
 }
 
-watch(article.value, async () => {
+watch(article, () => {
+  localSaved.value = false
+  cloudSaved.value = false
+  ElMessage.success('Saving...')
   debouncedFn()
 })
 
-// const saveLocalStatus = ref(false)
-// const saveCloudStatus = ref(false)
+function handleClean() {
+  article.value = {
+    shortLink: '',
+    title: '',
+    description: '',
+    cover: [],
+    stack: [],
+    category: 'ARTICLE',
+    content: '',
+    authorId: 0,
+    status: 'PUBLISHED',
+    tags: [],
+  }
+  localSaved.value = false
+  cloudSaved.value = false
+  articleId.value = undefined
+}
 </script>
 
 <template>
@@ -217,15 +296,38 @@ watch(article.value, async () => {
       <div class="w-200px flex flex-row items-center">
         shortLink: <el-input v-model="article.shortLink" class="ml-2" />
       </div>
-      <div class="ml-4 flex flex-row items-center">
+      <div v-if="localSaved || cloudSaved" class="ml-4 flex flex-row items-center">
         status:
-        <div class="i-carbon-information-filled text-red ml-2" />
-        <div class="i-carbon-checkmark-filled mx-2 text-yellow" />
-        <div class="i-carbon-checkmark-filled text-green" />
+        <div v-if="!localSaved && !cloudSaved" class="i-carbon-information-filled ml-2 text-red" />
+        <div v-if="localSaved" class="i-carbon-checkmark-filled mx-2 text-yellow" />
+        <div v-if="cloudSaved" class="i-carbon-checkmark-filled text-green" />
+      </div>
+      <div v-if="savedKeys.length > 0" class="ml-4">
+        recover:
+        <el-select v-model="currentRecoverKey">
+          <el-option
+            v-for="item in savedKeys"
+            :key="item"
+            :label="getTitleById(item)"
+            :value="item"
+          />
+        </el-select>
+        <el-button class="mx-2" type="success" @click="handleRecover">
+          recover
+        </el-button>
+      </div>
+      <div>
+        <el-popconfirm title="Are you sure to clean this form?" @confirm="handleClean">
+          <template #reference>
+            <el-button class="ml-2" type="danger">
+              clean
+            </el-button>
+          </template>
+        </el-popconfirm>
       </div>
     </div>
     <div class="flex flex-row">
-      <el-button class="mx-2" @click="publishDialog = true">
+      <el-button class="ml-2" type="primary" @click="publishDialog = true">
         publish
       </el-button>
     </div>
@@ -240,21 +342,6 @@ watch(article.value, async () => {
       @on-save="handleOnSave"
     />
   </div>
-  <el-dialog
-    v-model="recoverDialog"
-    title="Recover Article"
-  >
-    <div>
-      <div v-for="k in savedKeys" :key="k" class="flex flex-row items-center">
-        <div>
-          {{ k }}
-        </div>
-        <el-button class="ml-4" type="success" @click="handleRecover(k)">
-          recover
-        </el-button>
-      </div>
-    </div>
-  </el-dialog>
   <el-dialog
     v-model="publishDialog"
     title="Publish"
