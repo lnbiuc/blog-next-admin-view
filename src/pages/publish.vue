@@ -2,10 +2,10 @@
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { ElNotification, type FormInstance, type UploadFile, type UploadProps } from 'element-plus'
-import type { Article } from '~/axios/api/type'
+import type { Article, ArticleWithID } from '~/axios/api/type'
 import { getAllTags } from '~/axios/tag'
 import axios from '~/axios'
-import { publishArticle, updateArticle } from '~/axios/article'
+import { getAllArticles, getArticleById, publishArticle, updateArticle } from '~/axios/article'
 
 const article: Ref<Article> = ref({
   shortLink: '',
@@ -161,6 +161,8 @@ async function handlePublish(formEl: FormInstance | undefined) {
   })
 }
 
+const timeCount = ref<number>(30000)
+
 function updateContent() {
   if (!articleId.value) {
     publishDialog.value = true
@@ -171,9 +173,10 @@ function updateContent() {
   }
   updateArticle(data, articleId.value).then((res) => {
     saveToLocal()
-    if (res.data.code === 200) {
-      ElMessage.success('Update success')
+    if (res.data.code === 200 && res.data.data === 1) {
+      ElMessage.success('Content Update success')
       cloudSaved.value = true
+      timeCount.value = 30000
     }
 
     else { ElMessage.error(res.data.msg) }
@@ -229,6 +232,8 @@ function getTitleById(id: string): string {
   return ''
 }
 
+const autoSave = ref<boolean>(false)
+
 const currentRecoverKey = ref()
 
 function handleRecover() {
@@ -240,7 +245,7 @@ function handleRecover() {
   if (data) {
     article.value = JSON.parse(data)
     articleId.value = currentRecoverKey.value
-    ElMessage.success('Recover success')
+    autoSave.value = true
   }
 
   else { ElMessage.error('Recover failed') }
@@ -256,7 +261,7 @@ const debouncedFn = useDebounceFn(() => {
 
 function saveToLocal() {
   if (articleId.value) {
-    useLocalStorage(articleId.value, JSON.stringify(article.value))
+    localStorage.setItem(articleId.value, JSON.stringify(article.value))
     localSaved.value = true
   }
 }
@@ -264,9 +269,8 @@ function saveToLocal() {
 watch(article, () => {
   localSaved.value = false
   cloudSaved.value = false
-  ElMessage.success('Saving...')
   debouncedFn()
-})
+}, { deep: true })
 
 function handleClean() {
   article.value = {
@@ -284,6 +288,78 @@ function handleClean() {
   localSaved.value = false
   cloudSaved.value = false
   articleId.value = undefined
+  autoSave.value = false
+}
+
+const { pause, resume } = useIntervalFn(() => {
+  timeCount.value = timeCount.value - 1000
+}, 1000)
+
+watchEffect(() => {
+  if (articleId.value && autoSave.value) {
+    resume()
+  }
+
+  else {
+    pause()
+    timeCount.value = 30000
+  }
+})
+
+watch(timeCount, () => {
+  if (timeCount.value === 0) {
+    updateContent()
+    timeCount.value = 30000
+  }
+})
+
+function handleCleanCover() {
+  article.value.cover = []
+}
+
+function handleUpdateArticle() {
+  if (!articleId.value) {
+    ElMessage.error('Update failed, No ArticleId')
+    return
+  }
+
+  updateArticle(article.value, articleId.value).then((res) => {
+    saveToLocal()
+    if (res.data.code === 200 && res.data.data === 1) {
+      ElMessage.success('Article Update success')
+      cloudSaved.value = true
+      publishDialog.value = false
+    }
+
+    else { ElMessage.error(res.data.msg) }
+  })
+}
+
+const articleListDialog = ref<boolean>(false)
+
+const articleList = ref<ArticleWithID[]>([])
+
+function handleOpenArticleList() {
+  getAllArticles().then((res) => {
+    if (res.data.code === 200) {
+      articleList.value = res.data.data
+      articleListDialog.value = true
+    }
+    else { ElMessage.error(res.data.msg) }
+  })
+}
+
+function handleLoadArticle(id: string) {
+  getArticleById(id).then((res) => {
+    if (res.data.code === 200) {
+      article.value = res.data.data
+      localStorage.setItem(id, JSON.stringify(article.value))
+      articleId.value = id
+      autoSave.value = true
+      articleListDialog.value = false
+    }
+    else { ElMessage.error(res.data.msg) }
+  })
 }
 </script>
 
@@ -302,7 +378,7 @@ function handleClean() {
         <div v-if="localSaved" class="i-carbon-checkmark-filled mx-2 text-yellow" />
         <div v-if="cloudSaved" class="i-carbon-checkmark-filled text-green" />
       </div>
-      <div v-if="savedKeys.length > 0" class="ml-4">
+      <div v-if="savedKeys.length > 0" class="ml-2">
         recover:
         <el-select v-model="currentRecoverKey">
           <el-option
@@ -319,16 +395,28 @@ function handleClean() {
       <div>
         <el-popconfirm title="Are you sure to clean this form?" @confirm="handleClean">
           <template #reference>
-            <el-button class="ml-2" type="danger">
+            <el-button type="danger">
               clean
             </el-button>
           </template>
         </el-popconfirm>
       </div>
+      <div>
+        <el-button class="ml-2" type="primary" @click="handleOpenArticleList">
+          Open Article List
+        </el-button>
+      </div>
     </div>
-    <div class="flex flex-row">
-      <el-button class="ml-2" type="primary" @click="publishDialog = true">
-        publish
+    <div class="flex flex-row items-center">
+      <div class="mr-2 text-green">
+        {{ timeCount / 1000 }}
+      </div>
+      <el-switch v-model="autoSave" />
+      <el-button v-if="articleId" class="ml-2" type="success" @click="publishDialog = true">
+        Update
+      </el-button>
+      <el-button v-else class="ml-2" type="primary" @click="publishDialog = true">
+        Publish
       </el-button>
     </div>
   </div>
@@ -342,6 +430,107 @@ function handleClean() {
       @on-save="handleOnSave"
     />
   </div>
+  <el-dialog
+    v-model="articleListDialog"
+    title="Article List"
+    fullscreen
+  >
+    <el-table :data="articleList" stripe fit border>
+      <el-table-column
+        prop="id"
+        label="ID"
+      />
+      <el-table-column
+        prop="title"
+        label="Title"
+      />
+      <el-table-column
+        prop="shortLink"
+        label="Short Link"
+      >
+        <template #default="scope">
+          <a :href="`https://blog.lnbiuc.com/article/${scope.row.shortLink}`" target="_blank" class="link text-blue">
+            {{ scope.row.shortLink }}
+          </a>
+        </template>
+      </el-table-column>
+      <el-table-column
+        prop="description"
+        label="Description"
+      />
+      <el-table-column
+        prop="cover"
+        label="Cover"
+      >
+        <template #default="scope">
+          <img v-for="c in scope.row.cover" :key="c" :src="c" class="w-full object-cover">
+        </template>
+      </el-table-column>
+      <el-table-column
+        prop="category"
+        label="Category"
+        width="100"
+      />
+      <el-table-column
+        prop="status"
+        label="Status"
+        width="140"
+      >
+        <template #default="scope">
+          <el-tag v-if="scope.row.status === 'PUBLISHED'" type="success">
+            {{ scope.row.status }}
+          </el-tag>
+          <el-tag v-else-if="scope.row.status === 'DELETED'" type="danger">
+            {{ scope.row.status }}
+          </el-tag>
+          <el-tag v-else-if="scope.row.status === 'SAVER'" type="warning">
+            {{ scope.row.status }}
+          </el-tag>
+          <el-tag v-else-if="scope.row.status === 'PRIVATE'" type="info">
+            {{ scope.row.status }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column
+        prop="tags"
+        label="Tags"
+      >
+        <template #default="scope">
+          <el-tag v-for="t in scope.row.tags" :key="t" class="m-1">
+            {{ t }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column
+        prop="createdAt"
+        label="CreatedAt"
+      />
+      <el-table-column
+        prop="updatedAt"
+        label="UpdatedAt"
+      />
+      <el-table-column
+        prop="views"
+        label="Views"
+        width="70"
+      />
+      <el-table-column
+        prop="likes"
+        label="Likes"
+        width="70"
+      />
+      <el-table-column
+        label="Action"
+        width="100"
+      >
+        <template #default="{ row }">
+          <el-button type="primary" @click="handleLoadArticle(row.id)">
+            Load
+          </el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+  </el-dialog>
   <el-dialog
     v-model="publishDialog"
     title="Publish"
@@ -396,6 +585,9 @@ function handleClean() {
             </el-select>
           </el-form-item>
           <el-form-item label="cover" prop="cover">
+            <el-button class="mb-4" text bg @click="handleCleanCover">
+              Clean cover
+            </el-button>
             <el-upload
               v-model="article.cover"
               action="https://blog-api.vio.vin/api/v1/auth/file/upload"
@@ -411,12 +603,22 @@ function handleClean() {
             </el-upload>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" @click="handlePublish(ruleFormRef)">
+            <el-button v-if="articleId" class="ml-2" type="success" @click="handleUpdateArticle">
+              Update
+            </el-button>
+            <el-button v-else type="primary" @click="handlePublish(ruleFormRef)">
               Publish
             </el-button>
           </el-form-item>
         </el-form>
       </div>
+      <el-collapse>
+        <el-collapse-item title="meta data" name="1">
+          <div>
+            {{ article }}
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </div>
   </el-dialog>
 </template>

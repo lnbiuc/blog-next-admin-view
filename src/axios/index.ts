@@ -1,6 +1,4 @@
 import axios from 'axios'
-
-// @ts-expect-error sdasd
 import JSONBig from 'json-bigint'
 
 const apiAxios = axios.create({
