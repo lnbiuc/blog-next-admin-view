@@ -35,9 +35,13 @@ const category = ref<string[]>([
 
 const tags = ref<string[]>([])
 
-getAllTags().then((res: any) => {
-  tags.value = res.data.data
-})
+function getTags() {
+  getAllTags().then((res: any) => {
+    tags.value = res.data.data
+  })
+}
+
+getTags()
 
 const fileList = ref<Array<{ fileName: string; fileUrl: string | undefined }>>([])
 
@@ -149,6 +153,7 @@ async function handlePublish(formEl: FormInstance | undefined) {
           articleId.value = `${res.data.data}`
           cloudSaved.value = true
           saveToLocal()
+          getTags()
         }
 
         else { ElMessage.error(res.data.msg) }
@@ -289,6 +294,7 @@ function handleClean() {
   cloudSaved.value = false
   articleId.value = undefined
   autoSave.value = false
+  getTags()
 }
 
 const { pause, resume } = useIntervalFn(() => {
