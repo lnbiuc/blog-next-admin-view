@@ -113,7 +113,7 @@ const rules = reactive({
     { required: true, message: 'Please input the title', trigger: 'blur' },
   ],
   description: [
-    { required: true, message: 'Please input the description', trigger: 'blur' },
+    { required: false, message: 'Please input the description', trigger: 'blur' },
   ],
   status: [
     { required: true, message: 'Please select the status', trigger: 'blur' },
@@ -125,7 +125,7 @@ const rules = reactive({
     { required: true, message: 'Please select the tags', trigger: 'blur' },
   ],
   cover: [
-    { required: true, message: 'Please select the cover', trigger: 'blur' },
+    { required: false, message: 'Please select the cover', trigger: 'blur' },
   ],
 })
 
@@ -372,12 +372,12 @@ function handleLoadArticle(id: string) {
 <template>
   <div class="h-[50px] w-full flex flex-row items-center justify-between px-4">
     <div class="flex flex-row">
-      <div class="w-300px flex flex-row items-center">
+      <!-- <div class="w-300px flex flex-row items-center">
         title: <el-input v-model="article.title" class="mx-2" />
       </div>
       <div class="w-200px flex flex-row items-center">
         shortLink: <el-input v-model="article.shortLink" class="ml-2" />
-      </div>
+      </div> -->
       <div v-if="localSaved || cloudSaved" class="ml-4 flex flex-row items-center">
         status:
         <div v-if="!localSaved && !cloudSaved" class="i-carbon-information-filled ml-2 text-red" />
