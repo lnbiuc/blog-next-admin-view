@@ -156,7 +156,7 @@ async function handlePublish(formEl: FormInstance | undefined) {
           getTags()
         }
 
-        else { ElMessage.error(res.data.msg) }
+        else { ElMessage.error(res.data.data) }
       })
     }
     else {
@@ -174,6 +174,8 @@ function updateContent() {
     return
   }
   const data: Article = {
+    category: article.value.category,
+    shortLink: article.value.shortLink,
     content: article.value.content,
   }
   updateArticle(data, articleId.value).then((res) => {
@@ -184,7 +186,7 @@ function updateContent() {
       timeCount.value = 30000
     }
 
-    else { ElMessage.error(res.data.msg) }
+    else { ElMessage.error(res.data.data) }
   })
 }
 
@@ -337,7 +339,7 @@ function handleUpdateArticle() {
       publishDialog.value = false
     }
 
-    else { ElMessage.error(res.data.msg) }
+    else { ElMessage.error(res.data.data) }
   })
 }
 
@@ -455,7 +457,7 @@ function handleLoadArticle(id: string) {
         label="Short Link"
       >
         <template #default="scope">
-          <a :href="`https://blog.lnbiuc.com/article/${scope.row.shortLink}`" target="_blank" class="link text-blue">
+          <a :href="`https://vio.vin/article/${scope.row.shortLink}`" target="_blank" class="link text-blue">
             {{ scope.row.shortLink }}
           </a>
         </template>
