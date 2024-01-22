@@ -190,16 +190,12 @@ function updateContent() {
   })
 }
 
-const debouncedUpdateContent = useDebounceFn(() => {
-  updateContent()
-}, 3000)
-
 function handleOnSave() {
   if (!articleId.value) {
     publishDialog.value = true
     return
   }
-  debouncedUpdateContent()
+  updateContent()
 }
 
 function handleRemove(uploadFile: UploadFile) {
