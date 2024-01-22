@@ -190,12 +190,16 @@ function updateContent() {
   })
 }
 
+const debouncedUpdateContent = useThrottleFn(() => {
+  updateContent()
+}, 3000)
+
 function handleOnSave() {
   if (!articleId.value) {
     publishDialog.value = true
     return
   }
-  updateContent()
+  debouncedUpdateContent()
 }
 
 function handleRemove(uploadFile: UploadFile) {
